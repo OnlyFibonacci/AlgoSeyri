@@ -40,6 +40,7 @@ def zamanHesapla(timestamp):
     return dt.fromtimestamp(timestamp / 1000)
 
 
+
 def excelYap(okunacakCsv):
     basliklar = ['open_time', 'open', 'high', 'low', 'close', 'vol', 'close_time', 'qav', 'nat', 'tbbav', 'tbqav',
                  'ignore']
@@ -49,8 +50,18 @@ def excelYap(okunacakCsv):
     total = pd.DataFrame(
         {'Tarih': tarihler, 'Saat': saatler, 'Acilis': df['open'], 'Yuksek': df['high'], 'Dusuk': df['low'],
          'Kapanis': df['close'], 'HacimLot': df['vol'], 'AOrt': 0})
-    with pd.ExcelWriter(okunacakCsv + '.xlsx') as writer:
-        total.to_excel(writer, sheet_name='Sayfa1', index=False)
+    writer = pd.ExcelWriter(okunacakCsv + '.xlsx')
+    total.to_excel(writer, sheet_name='Sayfa1', index=False)
+    workbook = writer.book
+    worksheet = writer.sheets['Sayfa1']
+    header_format = workbook.add_format({
+        'bold': False,
+        'text_wrap': False,
+        'valign': 'top'})
+    for col_num, value in enumerate(total.columns.values):
+        worksheet.write(0, col_num , value, header_format)
+    writer.save()
+
 
 
 def csvOlustur(sembol, mumlar):
