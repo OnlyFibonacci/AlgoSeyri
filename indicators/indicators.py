@@ -162,3 +162,18 @@ def elis(high,low,close,period=50,mult=2,gear=2):
 
     return ELiS
 
+
+def fibonacci(high, low, ratio=618, lookBack=233):
+    peek = highest(high, lookBack)
+    deep = lowest(low, lookBack)
+
+    def fibCalculate(value):
+        if value == 0.5 or value == 50:
+            value = 500
+        if distance(high, peek) < distance(low, deep):
+            return peek - ((peek - deep) * value / 1000)
+        else:
+            return deep + ((peek - deep) * value / 1000)
+
+    return fibCalculate(ratio)
+
