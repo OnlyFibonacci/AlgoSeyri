@@ -40,3 +40,20 @@ def cross_above(series_a, series_b):
         return True
     else:
         return False
+
+    
+    
+def distance(series_a, value):
+    """
+    Value is searched by traversing the given series from the end
+    :param series_a:
+    :param value:
+    :return:
+    """
+    series_a = pd.Series(series_a) if isinstance(series_a, list) else series_a
+    d = 0
+    for i in range(series_a.size):
+        if value == series_a.iloc[- 1 - i]:
+            d = i
+            break
+    return d
