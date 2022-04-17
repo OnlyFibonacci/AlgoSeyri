@@ -177,3 +177,94 @@ def fibonacci(high, low, ratio=618, lookBack=233):
 
     return fibCalculate(ratio)
 
+
+
+def ott(data, lentgh=2, percent=1.4, mav='VAR'):
+    """Availaeble MA's:
+    dema, ema, fwma, hma, linreg, midpoint, pwma, rma,
+    sinwma, sma, swma, t3, tema, trima, vidya, wma, zlma"""
+
+    def var():
+        alpha = 2 / (lentgh + 1)
+        data['ud1'] = np.where(data['close'] > data['close'].shift(1), (data['close'] - data['close'].shift()), 0)
+        data['dd1'] = np.where(data['close'] < data['close'].shift(1), (data['close'].shift() - data['close']), 0)
+        data['UD'] = data['ud1'].rolling(9).sum()
+        data['DD'] = data['dd1'].rolling(9).sum()
+        data['CMO'] = ((data['UD'] - data['DD']) / (data['UD'] + data['DD'])).fillna(0).abs()
+
+        data['Var'] = 0.0
+        for i in range(lentgh, len(data)):
+            data['Var'].iat[i] = (alpha * data['CMO'].iat[i] * data['close'].iat[i]) + (
+                        1 - alpha * data['CMO'].iat[i]) * \
+                                 data['Var'].iat[
+                                     i - 1]
+        return data['Var']
+
+
+    def getMA(src, length):
+        if mav == 'VAR':
+            return var()
+        else:
+            return ta.ma(mav, src, length=length).fillna(value=0)
+
+    data['MAvg'] = getMA(data['close'], lentgh)
+    data['fark'] = data['MAvg'] * percent * 0.01
+    data['newlongstop'] = data['MAvg'] - data['fark']
+    data['newshortstop'] = data['MAvg'] + data['fark']
+    data['longstop'] = 0.0
+    data['shortstop'] = 0.0
+
+    
+    i = 0
+    while i < len(data):
+        def maxlongstop():
+            data.loc[(data['newlongstop'] > data['longstop'].shift(1)), 'longstop'] = data['newlongstop']
+            data.loc[(data['longstop'].shift(1) > data['newlongstop']), 'longstop'] = data['longstop'].shift(1)
+
+            return data['longstop']
+
+        def minshortstop():
+            data.loc[(data['newshortstop'] < data['shortstop'].shift(1)), 'shortstop'] = data['newshortstop']
+            data.loc[(data['shortstop'].shift(1) < data['newshortstop']), 'shortstop'] = data['shortstop'].shift(1)
+
+            return data['shortstop']
+
+        data['longstop'] = np.where((data['MAvg'] > data['longstop'].shift(1)), maxlongstop(), data['newlongstop'])
+
+        data['shortstop'] = np.where((data['MAvg'] < data['shortstop'].shift(1)), minshortstop(),
+                                     data['newshortstop'])
+        i += 1
+
+    # get xover
+
+    data['xlongstop'] = np.where(
+        (
+                (data['MAvg'].shift(1) > data['longstop'].shift(1)) &
+                (data['MAvg'] < data['longstop'].shift(1))
+        ), 1, 0)
+
+    data['xshortstop'] = np.where(
+        ((data['MAvg'].shift(1) < data['shortstop'].shift(1)) & (data['MAvg'] > data['shortstop'].shift(1))), 1, 0)
+
+    data['trend'] = 0
+    data['dir'] = 0
+
+    i = 0
+    while i < len(data):
+        data['trend'] = np.where((data['xshortstop'] == 1), 1,
+                                 (np.where((data['xlongstop'] == 1), -1, data['trend'].shift(1))))
+
+        data['dir'] = np.where((data['xshortstop'] == 1), 1,
+                               (np.where((data['xlongstop'] == 1), -1, data['dir'].shift(1).fillna(1))))
+
+        i += 1
+
+    data['MT'] = np.where(data['dir'] == 1, data['longstop'], data['shortstop'])
+    data['OTT'] = np.where(data['MAvg'] > data['MT'], (data['MT'] * (200 + percent) / 200),
+                           (data['MT'] * (200 - percent) / 200))
+    data['OTT'] = data['OTT'].shift(2)
+    ott = pd.DataFrame(data['OTT'])
+    ott['MAvg'] = data['MAvg']
+    return ott
+
+
